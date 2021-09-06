@@ -1,16 +1,18 @@
 import { useState, useRef, useContext } from "react";
+import { useHistory } from "react-router-dom";
 
-import classes from "./AuthForm.module.css";
-import use from "use";
 import AuthContext from "../../store/auth-context";
+import classes from "./AuthForm.module.css";
 
 const AuthForm = () => {
-  const [isLogin, setIsLogin] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
+  const history = useHistory();
   const emailInputRef = useRef();
   const passwordInputRef = useRef();
 
-  const authContext = useContext(AuthContext);
+  const authCtx = useContext(AuthContext);
+
+  const [isLogin, setIsLogin] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   const switchAuthModeHandler = () => {
     setIsLogin((prevState) => !prevState);
@@ -22,19 +24,17 @@ const AuthForm = () => {
     const enteredEmail = emailInputRef.current.value;
     const enteredPassword = passwordInputRef.current.value;
 
-    //optional add validation
+    // optional: Add validation
 
     setIsLoading(true);
-
     let url;
     if (isLogin) {
       url =
-        "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=AIzaSyBCrsealEb-NgwI9__Sv87BzqKyTdMfpbo";
+        "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=AIzaSyBZhsabDexE9BhcJbGxnZ4DiRlrCN9xe24";
     } else {
       url =
-        "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=AIzaSyBCrsealEb-NgwI9__Sv87BzqKyTdMfpbo";
+        "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=AIzaSyBZhsabDexE9BhcJbGxnZ4DiRlrCN9xe24";
     }
-
     fetch(url, {
       method: "POST",
       body: JSON.stringify({
@@ -42,7 +42,9 @@ const AuthForm = () => {
         password: enteredPassword,
         returnSecureToken: true,
       }),
-      headers: { "Content-type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
     })
       .then((res) => {
         setIsLoading(false);
@@ -50,18 +52,24 @@ const AuthForm = () => {
           return res.json();
         } else {
           return res.json().then((data) => {
-            // error modoal
-            let errMessage = "failed";
-            errMessage = data?.error?.message;
-            throw new Error(errMessage);
+            let errorMessage = "Authentication failed!";
+            // if (data && data.error && data.error.message) {
+            //   errorMessage = data.error.message;
+            // }
+
+            throw new Error(errorMessage);
           });
         }
       })
       .then((data) => {
-        authContext.login(data.idToken);
+        const expirationTime = new Date(
+          new Date().getTime() + +data.expiresIn * 1000
+        );
+        authCtx.login(data.idToken, expirationTime.toISOString());
+        history.replace("/");
       })
       .catch((err) => {
-        alert(err);
+        alert(err.message);
       });
   };
 
@@ -86,7 +94,7 @@ const AuthForm = () => {
           {!isLoading && (
             <button>{isLogin ? "Login" : "Create Account"}</button>
           )}
-          {isLogin && <p>sending request</p>}
+          {isLoading && <p>Sending request...</p>}
           <button
             type="button"
             className={classes.toggle}
